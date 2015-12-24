@@ -1,0 +1,1 @@
+Multiparty delegation protected resource.
