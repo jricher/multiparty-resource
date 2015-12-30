@@ -54,4 +54,17 @@
 
 </security:authorize>
 
+<c:if test="${ not empty sharedResourceSet }">
+
+<div class="alert alert-success">
+
+<b>Shared</b>
+
+This resource has been shared on server <c:out value="${ sharedResourceSet.issuer }" /> with ID <code><c:out value="${ sharedResourceSet.rsid }" /></code>.
+<a href="<c:out value="${ sharedResourceSet.userAccessPolicyUri }" />">Manage policies for this resource.</a>
+
+</div>
+
+</c:if>
+
 </div>
