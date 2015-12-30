@@ -17,40 +17,14 @@
 
 package org.mitreid.multiparty.service;
 
-import java.security.Principal;
-import java.util.Collection;
-
-import org.mitreid.multiparty.model.Resource;
-import org.mitreid.multiparty.model.SharedResourceSet;
+import org.mitreid.multiparty.model.MultipartyServerConfiguration;
 
 /**
  * @author jricher
  *
  */
-public interface ResourceService {
+public interface MultipartyServerConfigurationService {
 
-	/**
-	 * @param p
-	 * @return
-	 */
-	Collection<Resource> getAllForUser(Principal p);
-
-	/**
-	 * @param res
-	 * @param p
-	 */
-	void addResource(Resource res, Principal p);
-
-	/**
-	 * @param p
-	 * @return
-	 */
-	SharedResourceSet getSharedResourceSetForUser(Principal p);
-
-	/**
-	 * @param srs
-	 * @param p
-	 */
-	void shareResourceForUser(SharedResourceSet srs, Principal p);
-
+	public MultipartyServerConfiguration getServerConfiguration(String issuer);
+	
 }

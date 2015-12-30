@@ -161,6 +161,7 @@
 				<property name="redirectUris">
 					<set>
 						<value>http://localhost:8080/multiparty-resource/openid_connect_login</value>
+						<value>http://localhost:8080/multiparty-resource/pat_callback</value>
 					</set>
 				</property>
 				<!-- for signed requests -->

@@ -20,8 +20,11 @@ package org.mitreid.multiparty.service;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.mitreid.multiparty.model.Resource;
+import org.mitreid.multiparty.model.SharedResourceSet;
 import org.springframework.stereotype.Service;
 
 import com.google.common.collect.Multimap;
@@ -35,7 +38,8 @@ import com.google.common.collect.MultimapBuilder;
 public class InMemoryResourceService implements ResourceService {
 
 	private Multimap<String, Resource> resources = MultimapBuilder.linkedHashKeys().hashSetValues().build();
-
+	private Map<String, SharedResourceSet> sharedResourceSets = new HashMap<>();
+	
 	/* (non-Javadoc)
 	 * @see org.mitreid.multiparty.service.ResourceService#getAllForUser(java.security.Principal)
 	 */
@@ -63,6 +67,27 @@ public class InMemoryResourceService implements ResourceService {
 			throw new IllegalArgumentException("Principal can't be null");
 		}
 		resources.put(p.getName(), res);		
+	}
+
+	/* (non-Javadoc)
+	 * @see org.mitreid.multiparty.service.ResourceService#getSharedResourceSetForUser(java.security.Principal)
+	 */
+	@Override
+	public SharedResourceSet getSharedResourceSetForUser(Principal p) {
+		if (p == null) {
+			return null;
+		} else {
+			SharedResourceSet sharedResourceSet = sharedResourceSets.get(p.getName());
+			return sharedResourceSet;
+		}
+	}
+
+	/* (non-Javadoc)
+	 * @see org.mitreid.multiparty.service.ResourceService#shareResourceForUser(org.mitreid.multiparty.model.SharedResourceSet, java.security.Principal)
+	 */
+	@Override
+	public void shareResourceForUser(SharedResourceSet srs, Principal p) {
+		sharedResourceSets.put(p.getName(), srs);
 	}
 
 }

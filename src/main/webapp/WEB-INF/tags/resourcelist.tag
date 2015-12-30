@@ -40,3 +40,18 @@
 	</tbody>
 </table>
 
+<div class="well">
+
+<security:authorize access="hasRole('ROLE_USER')">
+
+<form action="share" method="POST">
+
+<input type="text" value="${ issuer }" name="issuer" />
+
+<input type="submit" value="Share" class="btn btn-default" />
+
+</form>
+
+</security:authorize>
+
+</div>

@@ -17,40 +17,27 @@
 
 package org.mitreid.multiparty.service;
 
-import java.security.Principal;
-import java.util.Collection;
-
-import org.mitreid.multiparty.model.Resource;
-import org.mitreid.multiparty.model.SharedResourceSet;
+import org.mitre.oauth2.model.RegisteredClient;
+import org.mitreid.multiparty.model.MultipartyServerConfiguration;
 
 /**
  * @author jricher
  *
  */
-public interface ResourceService {
+public interface AccessTokenService {
 
 	/**
-	 * @param p
+	 * @param server
+	 * @param client
 	 * @return
 	 */
-	Collection<Resource> getAllForUser(Principal p);
+	String getAccessToken(MultipartyServerConfiguration server, RegisteredClient client);
 
 	/**
-	 * @param res
-	 * @param p
+	 * @param server
+	 * @param client
+	 * @param accessTokenValue
 	 */
-	void addResource(Resource res, Principal p);
-
-	/**
-	 * @param p
-	 * @return
-	 */
-	SharedResourceSet getSharedResourceSetForUser(Principal p);
-
-	/**
-	 * @param srs
-	 * @param p
-	 */
-	void shareResourceForUser(SharedResourceSet srs, Principal p);
+	void saveAccesstoken(MultipartyServerConfiguration server, RegisteredClient client, String accessTokenValue);
 
 }
