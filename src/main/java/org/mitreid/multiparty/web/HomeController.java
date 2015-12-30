@@ -198,7 +198,7 @@ public class HomeController {
 
 	@RequestMapping("/pat_callback")
 	@PreAuthorize("hasRole('ROLE_USER')")
-	private String patCallback(@RequestParam("code") String code, @RequestParam("state") String state, Principal p, HttpSession session) {
+	public String patCallback(@RequestParam("code") String code, @RequestParam("state") String state, Principal p, HttpSession session) {
 		String savedState = (String) session.getAttribute("STATE");
 		
 		if (!state.equals(savedState)) {
