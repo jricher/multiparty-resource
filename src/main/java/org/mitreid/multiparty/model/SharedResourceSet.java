@@ -29,6 +29,7 @@ public class SharedResourceSet {
 	private String issuer;
 	private String rsid;
 	private String userAccessPolicyUri;
+	private String location;
 	
 	/**
 	 * @return the resourceSet
@@ -77,6 +78,18 @@ public class SharedResourceSet {
 	 */
 	public void setUserAccessPolicyUri(String userAccessPolicyUri) {
 		this.userAccessPolicyUri = userAccessPolicyUri;
+	}
+	/**
+	 * @return the location
+	 */
+	public String getLocation() {
+		return location;
+	}
+	/**
+	 * @param location the location to set
+	 */
+	public void setLocation(String location) {
+		this.location = location;
 	}
 	
 	

@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -167,6 +168,7 @@ public class HomeController {
 			return redirectForPAT(server, client, session);
 		} else {
 			// register the resource set
+			unregisterOldResourceSet(oldSharedResourceSet, accessTokenValue);
 			registerResourceSet(p, issuer, server, accessTokenValue);
 			
 			// redirect back to home page
@@ -174,6 +176,20 @@ public class HomeController {
 		}
 	}
 	
+	/**
+	 * @param oldSharedResourceSet
+	 * @param accessTokenValue
+	 */
+	private void unregisterOldResourceSet(SharedResourceSet oldSharedResourceSet, String accessTokenValue) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		headers.add("Authorization", "Bearer " + accessTokenValue);
+
+		HttpEntity<String> request = new HttpEntity<>(headers);
+
+		restTemplate.exchange(oldSharedResourceSet.getLocation(), HttpMethod.DELETE, request, String.class);
+	}
+
 	/**
 	 * @param server
 	 * @param client
@@ -249,15 +265,18 @@ public class HomeController {
 		headers.setContentType(MediaType.APPLICATION_JSON);
 		headers.add("Authorization", "Bearer " + accessTokenValue);
 
-		HttpEntity<String> entity = new HttpEntity<String>(requestJson.toString(), headers);
+		HttpEntity<String> request = new HttpEntity<String>(requestJson.toString(), headers);
 		
-		String resourceSetResponseString = restTemplate.postForObject(server.getResourceSetRegistrationEndpoint(), entity, String.class);
+		HttpEntity<String> responseEntity = restTemplate.postForEntity(server.getResourceSetRegistrationEndpoint(), request, String.class);
 		
-		JsonObject rso = parser.parse(resourceSetResponseString).getAsJsonObject();
+		JsonObject rso = parser.parse(responseEntity.getBody()).getAsJsonObject();
+		String location = responseEntity.getHeaders().getLocation().toString();
+
 		SharedResourceSet srs = new SharedResourceSet();
 		srs.setIssuer(issuer);
 		srs.setRsid(rso.get("_id").getAsString());
 		srs.setUserAccessPolicyUri(rso.get("user_access_policy_uri").getAsString());
+		srs.setLocation(location);
 		
 		resourceService.shareResourceForUser(srs, p);
 		
