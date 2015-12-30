@@ -55,7 +55,7 @@
 		<property name="suffix" value=".jsp" />
 	</bean>
 
-	<context:component-scan base-package="org.mitre.web" />
+	<context:component-scan base-package="org.mitreid.multiparty" />
 
 	<security:global-method-security pre-post-annotations="enabled" proxy-target-class="true" authentication-manager-ref="authenticationManager"/>
 

@@ -22,6 +22,10 @@
 					</security:authorize>
 				</p>
 			</div>
+			
+			<div>
+				<o:resourcelist />
+			</div>
 		</div>
 	</div>
 </div>

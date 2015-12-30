@@ -14,22 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *******************************************************************************/
-package org.mitre.web;
+package org.mitreid.multiparty.web;
 
 import java.security.Principal;
-import java.util.Locale;
-import java.util.Set;
+import java.util.Collection;
+import java.util.UUID;
 
-import javax.annotation.Resource;
-
-import org.mitre.openid.connect.client.OIDCAuthenticationFilter;
-import org.mitre.openid.connect.client.SubjectIssuerGrantedAuthority;
+import org.mitreid.multiparty.model.Resource;
+import org.mitreid.multiparty.service.ResourceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -37,6 +34,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import com.google.common.base.Strings;
 
 /**
  * Handles requests for the application home page.
@@ -46,6 +45,10 @@ public class HomeController {
 
 	private static final Logger logger = LoggerFactory.getLogger(HomeController.class);
 
+	@Autowired
+	private ResourceService resourceService;
+	
+	
 	/**
 	 * Simply selects the home view to render by returning its name.
 	 */
@@ -53,18 +56,30 @@ public class HomeController {
 	public String home(Model model, Principal p) {
 
 		// get resources for current user
+		Collection<Resource> resources = resourceService.getAllForUser(p);
 		// display form
+		
+		model.addAttribute("resources", resources);
 		
 		return "home";
 	}
 
 	@RequestMapping(value = "/create", method = RequestMethod.POST, consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
 	@PreAuthorize("hasRole('ROLE_USER')")
-	public void createResource(@RequestParam("name") String name, @RequestParam("value") String value) {
-		// create a unique resource for the current user (use principal name?)
-		// give it a random ID
-		// save it into the store
-		// redirect back to the home page
+	public String createResource(@RequestParam("label") String label, @RequestParam("value") String value, Principal p) {
+		if (!Strings.isNullOrEmpty(label) && !Strings.isNullOrEmpty(value)) {
+			// create a unique resource for the current user (use principal name?)
+			Resource res = new Resource();
+			res.label = label;
+			res.value = value;
+			// give it a random ID
+			res.id = UUID.randomUUID().toString();
+			// save it into the store
+			resourceService.addResource(res, p);
+			// redirect back to the home page
+		}
+		
+		return "redirect:";
 	}
 	
 	@RequestMapping(value = "/share", method = RequestMethod.POST, consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
