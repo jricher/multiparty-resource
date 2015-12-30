@@ -27,8 +27,11 @@ import org.mitreid.multiparty.model.Resource;
 import org.mitreid.multiparty.model.SharedResourceSet;
 import org.springframework.stereotype.Service;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.Multiset.Entry;
 
 /**
  * @author jricher
@@ -88,6 +91,33 @@ public class InMemoryResourceService implements ResourceService {
 	@Override
 	public void shareResourceForUser(SharedResourceSet srs, Principal p) {
 		sharedResourceSets.put(p.getName(), srs);
+	}
+
+	/* (non-Javadoc)
+	 * @see org.mitreid.multiparty.service.ResourceService#getById(java.lang.String)
+	 */
+	@Override
+	public Resource getById(final String rsId) {
+		
+		Multimap<String, Resource> filtered = Multimaps.filterValues(resources, new Predicate<Resource>() {
+
+			@Override
+			public boolean apply(Resource input) {
+				if (input.getId().equals(rsId)) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+		});
+		
+		
+		if (filtered.size() == 1) {
+			return filtered.values().iterator().next();
+		} else {
+			return null;
+		}
+		
 	}
 
 }

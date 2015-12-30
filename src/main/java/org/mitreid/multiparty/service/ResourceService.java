@@ -53,4 +53,10 @@ public interface ResourceService {
 	 */
 	void shareResourceForUser(SharedResourceSet srs, Principal p);
 
+	/**
+	 * @param rsId
+	 * @return
+	 */
+	Resource getById(String rsId);
+
 }

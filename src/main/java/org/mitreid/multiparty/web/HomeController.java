@@ -26,6 +26,7 @@ import java.util.Collection;
 
 import javax.servlet.http.HttpSession;
 
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.mitre.oauth2.model.RegisteredClient;
@@ -55,6 +56,7 @@ import org.springframework.ui.Model;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -289,10 +291,16 @@ public class HomeController {
 	}
 	
 	@RequestMapping(value = "/api/{id}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-	public void getResource(@PathVariable("id") String rsId, OAuth2Authentication auth) {
-		// check the authentication object to get the incoming token
+	public void getResource(@PathVariable("id") String rsId, @RequestHeader("Authorization") String authorization) {
+		// check the request to get the incoming token
+		if (Strings.isNullOrEmpty(authorization) || !authorization.toLowerCase().startsWith("bearer ")) {
+			throw new IllegalArgumentException("No authorization given");
+		}
+		String accessTokenValue = authorization.substring("bearer ".length());
 		// introspect/load the token
+		
 		// load the resource from the ID
+		Resource res = resourceService.getById(rsId);
 		// check to see if the token is from the AS associated with the resource
 		// check to see if the token has the right scopes
 		// check to see that the token is for the right resource set
