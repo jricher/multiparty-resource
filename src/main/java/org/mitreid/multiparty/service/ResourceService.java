@@ -59,4 +59,9 @@ public interface ResourceService {
 	 */
 	Resource getById(String rsId);
 
+	/**
+	 * @param oldSharedResourceSet
+	 */
+	void unshareResourceSet(Principal p);
+
 }

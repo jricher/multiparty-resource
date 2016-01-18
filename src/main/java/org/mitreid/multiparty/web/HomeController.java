@@ -169,8 +169,11 @@ public class HomeController {
 			session.setAttribute("SHARE_ISSUER", issuer);
 			return redirectForPAT(server, client, session);
 		} else {
+			// unregister the old set
+			if (oldSharedResourceSet != null) {
+				unregisterOldResourceSet(oldSharedResourceSet, accessTokenValue, p);
+			}
 			// register the resource set
-			unregisterOldResourceSet(oldSharedResourceSet, accessTokenValue);
 			registerResourceSet(p, issuer, server, accessTokenValue);
 			
 			// redirect back to home page
@@ -178,11 +181,27 @@ public class HomeController {
 		}
 	}
 	
+	@RequestMapping(value = "/unshare", method = RequestMethod.POST)
+	@PreAuthorize("hasRole('ROLE_USER')")
+	public String unshareResource(Principal p, HttpSession session) {
+		// load the resource
+		SharedResourceSet oldSharedResourceSet = resourceService.getSharedResourceSetForUser(p);
+		// discover/load the auth server configuration
+		MultipartyServerConfiguration server = serverConfig.getServerConfiguration(oldSharedResourceSet.getIssuer());
+		// load client configuration (register if needed)
+		RegisteredClient client = clientConfig.getClientConfiguration(server);
+		// get an access token 
+		String accessTokenValue = acccessTokenService.getAccessToken(server, client);
+		unregisterOldResourceSet(oldSharedResourceSet, accessTokenValue, p);
+		// redirect back to home page
+		return "redirect:";
+	}
+	
 	/**
 	 * @param oldSharedResourceSet
 	 * @param accessTokenValue
 	 */
-	private void unregisterOldResourceSet(SharedResourceSet oldSharedResourceSet, String accessTokenValue) {
+	private void unregisterOldResourceSet(SharedResourceSet oldSharedResourceSet, String accessTokenValue, Principal p) {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_JSON);
 		headers.add("Authorization", "Bearer " + accessTokenValue);
@@ -190,6 +209,8 @@ public class HomeController {
 		HttpEntity<String> request = new HttpEntity<>(headers);
 
 		restTemplate.exchange(oldSharedResourceSet.getLocation(), HttpMethod.DELETE, request, String.class);
+		
+		resourceService.unshareResourceSet(p);
 	}
 
 	/**

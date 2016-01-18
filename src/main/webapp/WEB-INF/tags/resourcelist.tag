@@ -42,18 +42,6 @@
 
 <div class="well">
 
-<security:authorize access="hasRole('ROLE_USER')">
-
-<form action="share" method="POST">
-
-<input type="text" value="${ issuer }" name="issuer" />
-
-<input type="submit" value="Share" class="btn btn-default" />
-
-</form>
-
-</security:authorize>
-
 <c:if test="${ not empty sharedResourceSet }">
 
 <div class="alert alert-success">
@@ -63,8 +51,24 @@
 This resource has been shared on server <c:out value="${ sharedResourceSet.issuer }" /> with ID <code><c:out value="${ sharedResourceSet.rsid }" /></code>.
 <a href="<c:out value="${ sharedResourceSet.userAccessPolicyUri }" />">Manage policies for this resource.</a>
 
+<form action="unshare" method="POST">
+	<input type="submit" value="Un-share" class="btn" />
+</form>
 </div>
 
 </c:if>
+
+<security:authorize access="hasRole('ROLE_USER')">
+
+<form action="share" method="POST">
+
+<input type="text" value="${ issuer }" name="issuer" />
+
+<input type="submit" value="${ not empty sharedResourceSet ? "Re-share" : "Share" }" class="btn btn-default" />
+
+</form>
+
+</security:authorize>
+
 
 </div>

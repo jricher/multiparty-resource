@@ -28,6 +28,7 @@ import org.mitreid.multiparty.model.SharedResourceSet;
 import org.springframework.stereotype.Service;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Multimaps;
@@ -118,6 +119,14 @@ public class InMemoryResourceService implements ResourceService {
 			return null;
 		}
 		
+	}
+
+	/* (non-Javadoc)
+	 * @see org.mitreid.multiparty.service.ResourceService#unshareResourceSet(org.mitreid.multiparty.model.SharedResourceSet)
+	 */
+	@Override
+	public void unshareResourceSet(Principal p) {
+		sharedResourceSets.remove(p.getName());		
 	}
 
 }
