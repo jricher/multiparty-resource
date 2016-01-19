@@ -22,17 +22,17 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.mitreid.multiparty.model.Resource;
 import org.mitreid.multiparty.model.SharedResourceSet;
 import org.springframework.stereotype.Service;
 
 import com.google.common.base.Predicate;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Multiset.Entry;
 
 /**
  * @author jricher
@@ -114,7 +114,7 @@ public class InMemoryResourceService implements ResourceService {
 		
 		
 		if (filtered.size() == 1) {
-			return filtered.values().iterator().next();
+			return Iterators.getOnlyElement(filtered.values().iterator());
 		} else {
 			return null;
 		}
@@ -127,6 +127,29 @@ public class InMemoryResourceService implements ResourceService {
 	@Override
 	public void unshareResourceSet(Principal p) {
 		sharedResourceSets.remove(p.getName());		
+	}
+
+	/* (non-Javadoc)
+	 * @see org.mitreid.multiparty.service.ResourceService#getSharedResourceSetForResource(org.mitreid.multiparty.model.Resource)
+	 */
+	@Override
+	public SharedResourceSet getSharedResourceSetForResource(final Resource res) {
+		Multimap<String, Resource> filtered = Multimaps.filterEntries(resources, new Predicate<Entry<String, Resource>>() {
+
+			@Override
+			public boolean apply(Entry<String, Resource> input) {
+				if (input.getValue().equals(res)) {
+					return true;
+				} else {
+					return false;
+				}
+			}
+			
+		});
+		
+		String principalName = Iterators.getOnlyElement(filtered.entries().iterator()).getKey();
+		
+		return sharedResourceSets.get(principalName);
 	}
 
 }

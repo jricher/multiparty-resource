@@ -16,23 +16,20 @@
  *******************************************************************************/
 package org.mitreid.multiparty.web;
 
-import static org.mitre.util.JsonUtils.getAsLong;
-import static org.mitre.util.JsonUtils.getAsString;
-import static org.mitre.util.JsonUtils.getAsStringSet;
-
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.security.Principal;
 import java.text.ParseException;
 import java.util.Collection;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-import org.apache.commons.codec.binary.StringUtils;
 import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.mitre.oauth2.model.RegisteredClient;
 import org.mitre.openid.connect.client.service.ClientConfigurationService;
 import org.mitre.openid.connect.model.OIDCAuthenticationToken;
-import org.mitre.util.JsonUtils;
 import org.mitreid.multiparty.model.MultipartyServerConfiguration;
 import org.mitreid.multiparty.model.Resource;
 import org.mitreid.multiparty.model.SharedResourceSet;
@@ -50,7 +47,6 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
-import org.springframework.security.oauth2.provider.OAuth2Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.LinkedMultiValueMap;
@@ -64,11 +60,13 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableSet;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonIOException;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.stream.JsonWriter;
 
 /**
  * Handles requests for the application home page.
@@ -312,23 +310,68 @@ public class HomeController {
 	}
 	
 	@RequestMapping(value = "/api/{id}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-	public void getResource(@PathVariable("id") String rsId, @RequestHeader("Authorization") String authorization) {
+	public void getResource(@PathVariable("id") String rsId, @RequestHeader("Authorization") String authorization, HttpServletResponse response) throws JsonIOException, IOException {
+		// load the resource from the ID
+		Resource res = resourceService.getById(rsId);
+		
+		if (res == null) {
+			// return a 404
+		}
+		
+		// get the resource set associated with the resource
+		SharedResourceSet resourceSet = resourceService.getSharedResourceSetForResource(res);
+
+		// get a permission ticket for this resource set
+		String ticket = getTicket(resourceSet);
+		
+		response.addHeader("WWW-Authenticate", "UMA realm=\"multiparty-resource\" as_uri=\"" + resourceSet.getIssuer() + "\" ticket=\"" + ticket + "\"");
+		
 		// check the request to get the incoming token
 		if (Strings.isNullOrEmpty(authorization) || !authorization.toLowerCase().startsWith("bearer ")) {
-			throw new IllegalArgumentException("No authorization given");
+			// no token, return a 401
 		}
 		String accessTokenValue = authorization.substring("bearer ".length());
 		// introspect/load the token
 		
-		// load the resource from the ID
-		Resource res = resourceService.getById(rsId);
 		// check to see if the token is from the AS associated with the resource
 		// check to see if the token has the right scopes
 		// check to see that the token is for the right resource set
 		// if the token isn't good enough, return a ticket with the AS reference
 		// if the resource isn't shared, return a 404
 		// if the token is good enough, return the resource
+		new Gson().toJson(res, Resource.class, new JsonWriter(new OutputStreamWriter(response.getOutputStream())));
+	}
+
+	/**
+	 * @param resourceSet
+	 * @return
+	 */
+	private String getTicket(SharedResourceSet resourceSet) {
 		
+		MultipartyServerConfiguration server = serverConfig.getServerConfiguration(resourceSet.getIssuer());
+		// load client configuration (register if needed)
+		RegisteredClient client = clientConfig.getClientConfiguration(server);
+		// get an access token
+		String accessTokenValue = acccessTokenService.getAccessToken(server, client);
+		
+		JsonObject requestJson = new JsonObject();
+		requestJson.addProperty("resource_set_id", resourceSet.getRsid());
+		JsonArray scopes = new JsonArray();
+		requestJson.add("resource_set_scopes", scopes);
+		
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		headers.add("Authorization", "Bearer " + accessTokenValue);
+
+		HttpEntity<String> request = new HttpEntity<String>(requestJson.toString(), headers);
+		
+		HttpEntity<String> responseEntity = restTemplate.postForEntity(server.getPermissionRegistrationEndpoint(), request, String.class);
+		
+		JsonObject rso = parser.parse(responseEntity.getBody()).getAsJsonObject();
+
+		String ticket = rso.get("ticket").getAsString();
+		
+		return ticket;
 	}
 
 }

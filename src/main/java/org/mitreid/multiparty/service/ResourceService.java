@@ -64,4 +64,10 @@ public interface ResourceService {
 	 */
 	void unshareResourceSet(Principal p);
 
+	/**
+	 * @param res
+	 * @return
+	 */
+	SharedResourceSet getSharedResourceSetForResource(Resource res);
+
 }
