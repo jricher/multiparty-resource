@@ -21,6 +21,7 @@ import java.io.OutputStreamWriter;
 import java.security.Principal;
 import java.text.ParseException;
 import java.util.Collection;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -30,6 +31,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.mitre.oauth2.model.RegisteredClient;
 import org.mitre.openid.connect.client.service.ClientConfigurationService;
 import org.mitre.openid.connect.model.OIDCAuthenticationToken;
+import org.mitre.util.JsonUtils;
 import org.mitreid.multiparty.model.MultipartyServerConfiguration;
 import org.mitreid.multiparty.model.Resource;
 import org.mitreid.multiparty.model.SharedResourceSet;
@@ -42,6 +44,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -62,6 +65,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.google.common.base.Strings;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -310,50 +314,121 @@ public class HomeController {
 	}
 	
 	@RequestMapping(value = "/api/{id}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-	public void getResource(@PathVariable("id") String rsId, @RequestHeader("Authorization") String authorization, HttpServletResponse response) throws JsonIOException, IOException {
+	public void getResource(@PathVariable("id") String rsId, @RequestHeader(value = "Authorization", required = false) String authorization, HttpServletResponse response) throws JsonIOException, IOException {
 		// load the resource from the ID
 		Resource res = resourceService.getById(rsId);
 		
 		if (res == null) {
-			// return a 404
+			// no resource with that ID, return a 404
+			response.setStatus(HttpStatus.NOT_FOUND.value());
+			return;
 		}
 		
 		// get the resource set associated with the resource
 		SharedResourceSet resourceSet = resourceService.getSharedResourceSetForResource(res);
-
-		// get a permission ticket for this resource set
-		String ticket = getTicket(resourceSet);
 		
+		if (resourceSet == null) {
+			// not shared yet, return a 404
+			response.setStatus(HttpStatus.NOT_FOUND.value());
+			return;
+		}
+
+		
+		// load the server configuration based on the issuer from the resource set
+		MultipartyServerConfiguration server = serverConfig.getServerConfiguration(resourceSet.getIssuer());
+		// load client configuration (register if needed)
+		RegisteredClient client = clientConfig.getClientConfiguration(server);
+		// get an access token
+		String protectionAccessTokenValue = acccessTokenService.getAccessToken(server, client);
+		
+
+		
+		// get a permission ticket for this resource set
+		String ticket = getTicket(resourceSet, server, client, protectionAccessTokenValue);
+
+		if (Strings.isNullOrEmpty(ticket)) {
+			// couldn't get a ticket for some reason
+			response.addHeader("Warning", "199 - UMA Authorization Server Unreachable");
+			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+			return;
+		}
+
+		// add the issuer and ticket to the response header
 		response.addHeader("WWW-Authenticate", "UMA realm=\"multiparty-resource\" as_uri=\"" + resourceSet.getIssuer() + "\" ticket=\"" + ticket + "\"");
 		
 		// check the request to get the incoming token
 		if (Strings.isNullOrEmpty(authorization) || !authorization.toLowerCase().startsWith("bearer ")) {
 			// no token, return a 401
+			response.setStatus(HttpStatus.UNAUTHORIZED.value());
+			return;
 		}
-		String accessTokenValue = authorization.substring("bearer ".length());
+		String incomingAccessToken = authorization.substring("bearer ".length());
 		// introspect/load the token
+		JsonObject introspected = introspectToken(incomingAccessToken, server, client, protectionAccessTokenValue);
 		
-		// check to see if the token is from the AS associated with the resource
-		// check to see if the token has the right scopes
-		// check to see that the token is for the right resource set
-		// if the token isn't good enough, return a ticket with the AS reference
-		// if the resource isn't shared, return a 404
-		// if the token is good enough, return the resource
-		new Gson().toJson(res, Resource.class, new JsonWriter(new OutputStreamWriter(response.getOutputStream())));
+		if (!introspected.get("active").getAsBoolean()) {
+			// token wasn't active, forbidden
+			response.setStatus(HttpStatus.FORBIDDEN.value());
+			return;
+		}
+		
+		JsonArray permissions = introspected.get("permissions").getAsJsonArray();
+		for (JsonElement permission : permissions) {
+			// check to see that the token is for the right resource set
+			String permissionRsid = permission.getAsJsonObject().get("resource_set_id").getAsString();
+			if (permissionRsid.equals(resourceSet.getRsid())) {
+				// check to see if the token has the right scopes
+				Set<String> scopes = JsonUtils.getAsStringSet(permission.getAsJsonObject(), "permission_scopes");
+				
+				if (scopes.contains("read")) {
+					// if the token is good enough, return the resource
+					new Gson().toJson(res, Resource.class, new JsonWriter(new OutputStreamWriter(response.getOutputStream())));
+				}
+			}
+		}
+
+		// if we fall down here then we didn't find a workable permission
+		response.setStatus(HttpStatus.FORBIDDEN.value());
+		return;
+		
+	}
+
+	/**
+	 * @param incomingAccessToken
+	 * @param server
+	 * @param client
+	 * @param protectionAccessTokenValue
+	 * @return
+	 */
+	private JsonObject introspectToken(String incomingAccessToken, MultipartyServerConfiguration server, RegisteredClient client, String protectionAccessTokenValue) {
+
+		// POST to the introspection endpoint and get the results
+		
+		MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+		params.add("token", incomingAccessToken);
+		
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		headers.add("Authorization", "Bearer " + protectionAccessTokenValue);
+
+		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+		
+		HttpEntity<String> responseEntity = restTemplate.postForEntity(server.getIntrospectionEndpointUri(), request, String.class);
+
+		JsonObject rso = parser.parse(responseEntity.getBody()).getAsJsonObject();
+
+		return rso;
 	}
 
 	/**
 	 * @param resourceSet
+	 * @param protectionAccessTokenValue 
+	 * @param client 
+	 * @param server 
 	 * @return
 	 */
-	private String getTicket(SharedResourceSet resourceSet) {
-		
-		MultipartyServerConfiguration server = serverConfig.getServerConfiguration(resourceSet.getIssuer());
-		// load client configuration (register if needed)
-		RegisteredClient client = clientConfig.getClientConfiguration(server);
-		// get an access token
-		String accessTokenValue = acccessTokenService.getAccessToken(server, client);
-		
+	private String getTicket(SharedResourceSet resourceSet, MultipartyServerConfiguration server, RegisteredClient client, String protectionAccessTokenValue) {
+
 		JsonObject requestJson = new JsonObject();
 		requestJson.addProperty("resource_set_id", resourceSet.getRsid());
 		JsonArray scopes = new JsonArray();
@@ -361,7 +436,7 @@ public class HomeController {
 		
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_JSON);
-		headers.add("Authorization", "Bearer " + accessTokenValue);
+		headers.add("Authorization", "Bearer " + protectionAccessTokenValue);
 
 		HttpEntity<String> request = new HttpEntity<String>(requestJson.toString(), headers);
 		
