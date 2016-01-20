@@ -34,7 +34,7 @@
 		<tr>
 			<td><c:out value="${ res.label }" /></td>
 			<td><c:out value="${ res.value }" /></td>
-			<td><c:out value="${ res.id  }" /></td>
+			<td><a href="http://localhost:8080/multiparty-resource/api/<c:out value="${ res.id  }" />"><c:out value="${ res.id  }" /></a></td>
 		</tr>	
 		</c:forEach>
 	</tbody>

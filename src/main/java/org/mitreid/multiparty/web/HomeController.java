@@ -348,13 +348,13 @@ public class HomeController {
 
 		if (Strings.isNullOrEmpty(ticket)) {
 			// couldn't get a ticket for some reason
-			response.addHeader("Warning", "199 - UMA Authorization Server Unreachable");
+			response.addHeader(HttpHeaders.WARNING, "199 - UMA Authorization Server Unreachable");
 			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
 			return;
 		}
 
 		// add the issuer and ticket to the response header
-		response.addHeader("WWW-Authenticate", "UMA realm=\"multiparty-resource\" as_uri=\"" + resourceSet.getIssuer() + "\" ticket=\"" + ticket + "\"");
+		response.addHeader(HttpHeaders.WWW_AUTHENTICATE, "UMA realm=\"multiparty-resource\", as_uri=\"" + resourceSet.getIssuer() + "\", ticket=\"" + ticket + "\"");
 		
 		// check the request to get the incoming token
 		if (Strings.isNullOrEmpty(authorization) || !authorization.toLowerCase().startsWith("bearer ")) {
@@ -408,7 +408,7 @@ public class HomeController {
 		params.add("token", incomingAccessToken);
 		
 		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.APPLICATION_JSON);
+		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 		headers.add("Authorization", "Bearer " + protectionAccessTokenValue);
 
 		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
