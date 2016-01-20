@@ -59,6 +59,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -76,9 +77,9 @@ import com.google.gson.stream.JsonWriter;
  * Handles requests for the application home page.
  */
 @Controller
-public class HomeController {
+public class ResourceController {
 
-	private static final Logger logger = LoggerFactory.getLogger(HomeController.class);
+	private static final Logger logger = LoggerFactory.getLogger(ResourceController.class);
 
 	@Autowired
 	private ResourceService resourceService;
@@ -314,23 +315,24 @@ public class HomeController {
 	}
 	
 	@RequestMapping(value = "/api/{id}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-	public void getResource(@PathVariable("id") String rsId, @RequestHeader(value = "Authorization", required = false) String authorization, HttpServletResponse response) throws JsonIOException, IOException {
+	@ResponseBody
+	public Resource getResource(@PathVariable("id") String rsId, @RequestHeader(value = "Authorization", required = false) String authorization, HttpServletResponse response) throws JsonIOException, IOException {
 		// load the resource from the ID
 		Resource res = resourceService.getById(rsId);
 		
 		if (res == null) {
 			// no resource with that ID, return a 404
 			response.setStatus(HttpStatus.NOT_FOUND.value());
-			return;
+			return null;
 		}
-		
+
 		// get the resource set associated with the resource
 		SharedResourceSet resourceSet = resourceService.getSharedResourceSetForResource(res);
 		
 		if (resourceSet == null) {
 			// not shared yet, return a 404
 			response.setStatus(HttpStatus.NOT_FOUND.value());
-			return;
+			return null;
 		}
 
 		
@@ -350,7 +352,7 @@ public class HomeController {
 			// couldn't get a ticket for some reason
 			response.addHeader(HttpHeaders.WARNING, "199 - UMA Authorization Server Unreachable");
 			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-			return;
+			return null;
 		}
 
 		// add the issuer and ticket to the response header
@@ -360,7 +362,7 @@ public class HomeController {
 		if (Strings.isNullOrEmpty(authorization) || !authorization.toLowerCase().startsWith("bearer ")) {
 			// no token, return a 401
 			response.setStatus(HttpStatus.UNAUTHORIZED.value());
-			return;
+			return null;
 		}
 		String incomingAccessToken = authorization.substring("bearer ".length());
 		// introspect/load the token
@@ -369,7 +371,7 @@ public class HomeController {
 		if (!introspected.get("active").getAsBoolean()) {
 			// token wasn't active, forbidden
 			response.setStatus(HttpStatus.FORBIDDEN.value());
-			return;
+			return null;
 		}
 		
 		JsonArray permissions = introspected.get("permissions").getAsJsonArray();
@@ -382,14 +384,14 @@ public class HomeController {
 				
 				if (scopes.contains("read")) {
 					// if the token is good enough, return the resource
-					new Gson().toJson(res, Resource.class, new JsonWriter(new OutputStreamWriter(response.getOutputStream())));
+					return res;
 				}
 			}
 		}
 
 		// if we fall down here then we didn't find a workable permission
 		response.setStatus(HttpStatus.FORBIDDEN.value());
-		return;
+		return null;
 		
 	}
 
